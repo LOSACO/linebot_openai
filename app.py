@@ -8,6 +8,9 @@ from linebot.exceptions import (
 )
 from linebot.models import *
 
+# 导入 command_handlers.py 中的函数
+from command_handlers import handle_add_list, process_state
+
 #======python的函數庫==========
 import tempfile, os
 import datetime
@@ -51,18 +54,30 @@ def callback():
     return 'OK'
 
 
+user_states = {}
+user_data = {}
+
 # 處理訊息
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
+    user_id = event.source.user_id
     msg = event.message.text
-    try:
-        GPT_answer = GPT_response(msg)
-        print(GPT_answer)
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(GPT_answer))
-    except:
-        print(traceback.format_exc())
-        line_bot_api.reply_message(event.reply_token, TextSendMessage('你所使用的OPENAI API key額度可能已經超過，請於後台Log內確認錯誤訊息'))
-        
+    
+    if user_id in user_states:
+        # 处理用户状态
+        process_state(user_id, event, line_bot_api, user_states, user_data)
+    elif msg == '/新增名單':
+        # 处理新增名單命令
+        handle_add_list(event, line_bot_api, user_states, user_data)
+    else:
+        # 使用 OpenAI GPT 处理其他消息
+        try:
+            GPT_answer = GPT_response(msg)
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(GPT_answer))
+        except:
+            print(traceback.format_exc())
+            line_bot_api.reply_message(event.reply_token, TextSendMessage('您所使用的OPENAI API key额度可能已经超过，请于后台Log内确认错误信息'))
+
 
 @handler.add(PostbackEvent)
 def handle_message(event):
